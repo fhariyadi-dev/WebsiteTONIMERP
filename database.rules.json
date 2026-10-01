@@ -1,0 +1,18 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "ton_global_state": {
+      ".read": "auth != null && auth.token.username != null",
+      ".write": false
+    },
+    "ton_auth_credentials": {
+      ".read": false,
+      ".write": false
+    },
+    "ton_login_limits": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}
