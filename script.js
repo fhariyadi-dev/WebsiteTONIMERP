@@ -362,6 +362,8 @@ function applyGlobalState(data) {
     vaultBalance = data.vaultBalance || 0;
     if (Array.isArray(data.syndVouchers)) syndVouchers = data.syndVouchers;
     metalScrapLogs = data.metalScrapLogs || [];
+    laundryData = data.laundryData || [];
+    if (typeof renderLaundryTable === 'function') renderLaundryTable();
     
     if (typeof defaultCustomAccounts !== 'undefined') {
         customAccounts = data.customAccounts ? { ...defaultCustomAccounts, ...data.customAccounts } : { ...defaultCustomAccounts };
