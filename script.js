@@ -6486,6 +6486,34 @@ if (typeof window.renderMessageBoard === 'function') {
 // FITUR INTERNAL: MONEY LAUNDRY
 // ==========================================
 
+// ----------------------------------------------------
+// FITUR AUTO-KALKULASI LAUNDRY (POTONGAN BERUNTUN)
+// ----------------------------------------------------
+function calculateLaundry() {
+  const dirtyInput = document.getElementById('laundry-dirty-amount');
+  const cut1Input = document.getElementById('laundry-cut-1');
+  const cut2Input = document.getElementById('laundry-cut-2');
+  const cleanInput = document.getElementById('laundry-clean-amount');
+
+  if (!dirtyInput || !cut1Input || !cut2Input || !cleanInput) return;
+
+  // Ambil nilai angka, jika kotak kosong jadikan 0
+  let dirtyAmt = parseFloat(dirtyInput.value) || 0;
+  let cut1 = parseFloat(cut1Input.value) || 0;
+  let cut2 = parseFloat(cut2Input.value) || 0;
+
+  // Logika Perhitungan Beruntun:
+  // 1. Uang Merah dipotong % Pertama
+  let sisaSetelahPotongan1 = dirtyAmt - (dirtyAmt * (cut1 / 100));
+  
+  // 2. SISA hasil potongan pertama dipotong lagi % Kedua
+  let sisaSetelahPotongan2 = sisaSetelahPotongan1 - (sisaSetelahPotongan1 * (cut2 / 100));
+
+  // 3. Tampilkan hasil akhirnya (dibulatkan agar tidak ada desimal)
+  cleanInput.value = Math.round(sisaSetelahPotongan2);
+}
+
+
 // 1. Fungsi Tambah Catatan Cuci Uang
 function submitLaundryJob() {
   const userRank = getUserRank();
