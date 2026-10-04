@@ -398,22 +398,48 @@
         
 <div id="tab-laundry-section" class="tab-panel hidden space-y-6">
   
-  <!-- FORM INPUT -->
+<!-- FORM INPUT DENGAN KALKULATOR OTOMATIS -->
   <div class="flex flex-wrap gap-4 bg-[#131622] p-5 rounded-2xl border border-[#1e2230] shadow-sm">
-    <div class="flex-1 min-w-[160px]">
+    
+    <!-- 1. UANG MERAH -->
+    <div class="flex-1 min-w-[140px]">
       <label class="block text-xs font-bold text-zinc-500 uppercase mb-2">Uang Merah</label>
-      <input type="number" id="laundry-dirty-amount" placeholder="Isi Sesuai Nominal" class="w-full bg-[#0e1017] border border-[#1e2230] text-red-400 font-bold font-mono rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-red-500/50 transition">
+      <input type="number" id="laundry-dirty-amount" oninput="calculateLaundry()" placeholder="0" class="w-full bg-[#0e1017] border border-[#1e2230] text-red-400 font-bold font-mono rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-red-500/50 transition">
     </div>
-    <div class="flex-1 min-w-[160px]">
-      <label class="block text-xs font-bold text-zinc-500 uppercase mb-2">Uang Bersih</label>
-      <input type="number" id="laundry-clean-amount" placeholder="Isi Sesuai Nominal " class="w-full bg-[#0e1017] border border-[#1e2230] text-emerald-400 font-bold font-mono rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500/50 transition">
+
+    <!-- 2. POTONGAN PERTAMA (%) -->
+    <div class="w-[100px]">
+      <label class="block text-xs font-bold text-zinc-500 uppercase mb-2" title="Potongan Pertama">Potong 1</label>
+      <div class="relative">
+        <input type="number" id="laundry-cut-1" oninput="calculateLaundry()" placeholder="0" class="w-full bg-[#0e1017] border border-[#1e2230] text-amber-400 font-bold font-mono rounded-xl pl-4 pr-8 py-3 text-sm focus:outline-none focus:border-amber-500/50 transition">
+        <span class="absolute right-3 top-3 text-zinc-500 font-bold">%</span>
+      </div>
     </div>
-    <div class="flex-1 min-w-[160px]">
+
+    <!-- 3. POTONGAN KEDUA (%) -->
+    <div class="w-[100px]">
+      <label class="block text-xs font-bold text-zinc-500 uppercase mb-2" title="Potongan Kedua">Potong 2</label>
+      <div class="relative">
+        <input type="number" id="laundry-cut-2" oninput="calculateLaundry()" placeholder="0" class="w-full bg-[#0e1017] border border-[#1e2230] text-amber-400 font-bold font-mono rounded-xl pl-4 pr-8 py-3 text-sm focus:outline-none focus:border-amber-500/50 transition">
+        <span class="absolute right-3 top-3 text-zinc-500 font-bold">%</span>
+      </div>
+    </div>
+
+    <!-- 4. UANG BERSIH (OTOMATIS / DIKUNCI) -->
+    <div class="flex-1 min-w-[140px]">
+      <label class="block text-xs font-bold text-emerald-600/70 uppercase mb-2">Uang Bersih</label>
+      <input type="number" id="laundry-clean-amount" readonly placeholder="Otomatis" class="w-full bg-[#0a0c10] border border-[#1e2230] text-emerald-500 font-bold font-mono rounded-xl px-4 py-3 text-sm cursor-not-allowed outline-none">
+    </div>
+
+    <!-- 5. USER / PENCUCI -->
+    <div class="flex-1 min-w-[140px]">
       <label class="block text-xs font-bold text-zinc-500 uppercase mb-2">User</label>
-      <input type="text" id="laundry-washer-name" placeholder="Nama Member " class="w-full bg-[#0e1017] border border-[#1e2230] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-zinc-500/50 transition">
+      <input type="text" id="laundry-washer-name" placeholder="Nama Member" class="w-full bg-[#0e1017] border border-[#1e2230] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-zinc-500/50 transition">
     </div>
+    
+    <!-- 6. SUBMIT -->
     <div class="flex items-end">
-      <button onclick="submitLaundryJob()" class="h-[46px] px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-600/20">
+      <button onclick="submitLaundryJob()" class="h-[46px] px-6 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-600/20">
         Submit Record
       </button>
     </div>
