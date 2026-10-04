@@ -31,6 +31,7 @@ const ORDERS_WEBHOOK_URL = "https://discord.com/api/webhooks/1555218886545121320
 const PROFILE_WEBHOOK_URL = "https://discord.com/api/webhooks/1532561498159976651/T_Sp0q6povwP3ch2f9y__gmWgdWpUJ2GRCSTdcAYLj8zPk3s-L_LVF63OCzOVJF9_Y8N";
 const VAULT_LOGS_WEBHOOK_URL = "https://discord.com/api/webhooks/1532561688002428988/Y2_uA_BIu-9aAV347DghjYR6LFIRk-oZqL7ttbZ0Z2yYxTGyUo-U5HMGCRu6bnywAr9B";
 const METAL_SCRAP_WEBHOOK_URL = "https://discord.com/api/webhooks/1532561842017403001/ZznknpZrbb780buFdqIOA9aSRi6TIAFoQpX-S1aacmZcTyd0j53IXkWPo8U5WgjZBqNO";
+const LAUNDRY_WEBHOOK_URL = "https://discord.com/api/webhooks/1556239742461288582/b5SQNOgQgtIfY9K6QglAy0H0wdgFiR8TEgc7z0k97PYfqVmiyTQuvQLdKLtgXqAmPKJB";
 
 // =====================================================================
 // 🚨 OPSI DARURAT: DAFTAR AKUN MANUAL ANTI-GAGAL 🚨
@@ -104,6 +105,8 @@ let stockProofLogs = getSafeStorage('ton_stock_proof_logs') || [];
 let metalScrapLogs = getSafeStorage('ton_metal_scrap') || [];
 let auditLogs = getSafeStorage('ton_audit_logs') || [];
 let internalMessages = getSafeStorage('ton_internal_messages') || [];
+let laundryData = []; // Array untuk menampung riwayat cuci uang
+
 
 // 🚀 STATE KHUSUS MODERATOR & SECURITY
 let isVaultLockdown = getSafeStorage('ton_vault_lockdown') || false;
@@ -1608,115 +1611,121 @@ function calculateWaitingDuration(timeStr) {
 }
 
 function renderTxProcessTable(isRefresh = false) {
-  const table = document.getElementById('transaction-process-table');
-  if (!table) return;
-  if (isRefresh) {
-    const refreshTimeElem = document.getElementById('tx-refreshed-time');
-    if (refreshTimeElem) refreshTimeElem.innerText = new Date().toLocaleTimeString('en-US');
-  }
+  const table = document.getElementById('transaction-process-table');
+  if (!table) return;
+  if (isRefresh) {
+    const refreshTimeElem = document.getElementById('tx-refreshed-time');
+    if (refreshTimeElem) refreshTimeElem.innerText = new Date().toLocaleTimeString('en-US');
+  }
 
-  const counts = { Pending: 0, "Waiting Release": 0, Released: 0, Approved: 0, Rejected: 0 };
-  adminTransactions.forEach(tx => { 
-    if (counts[tx.status] !== undefined) counts[tx.status]++;
-    tx.waiting = calculateWaitingDuration(tx.time);
-  });
-  
-  Object.keys(counts).forEach(key => {
-    const countElem = document.getElementById('count-' + key);
-    if (countElem) countElem.innerText = counts[key];
-  });
-  const pendTodayElem = document.getElementById('tx-pending-today-count');
-  if (pendTodayElem) pendTodayElem.innerText = counts.Pending;
+  const counts = { Pending: 0, "Waiting Release": 0, Released: 0, Approved: 0, Rejected: 0 };
+  adminTransactions.forEach(tx => { 
+    if (counts[tx.status] !== undefined) counts[tx.status]++;
+    tx.waiting = calculateWaitingDuration(tx.time);
+  });
+  
+  Object.keys(counts).forEach(key => {
+    const countElem = document.getElementById('count-' + key);
+    if (countElem) countElem.innerText = counts[key];
+  });
+  const pendTodayElem = document.getElementById('tx-pending-today-count');
+  if (pendTodayElem) pendTodayElem.innerText = counts.Pending;
 
-  let filtered = adminTransactions.filter(tx => {
-    if (activeTxStatusFilter !== 'All' && tx.status !== activeTxStatusFilter) return false;
-    if (activeTxSearchQuery) {
-      const matchId = tx.id.toLowerCase().includes(activeTxSearchQuery);
-      const matchBuyer = tx.buyer.toLowerCase().includes(activeTxSearchQuery);
-      if (!matchId && !matchBuyer) return false;
-    }
-    if (activeTxItemFilter !== 'all') {
-      const hasItem = tx.items && tx.items.some(i => i.name.toLowerCase() === activeTxItemFilter.toLowerCase());
-      if (!hasItem && tx.package !== activeTxItemFilter) return false;
-    }
-    return true;
-  });
+  let filtered = adminTransactions.filter(tx => {
+    if (activeTxStatusFilter !== 'All' && tx.status !== activeTxStatusFilter) return false;
+    if (activeTxSearchQuery) {
+      const matchId = tx.id.toLowerCase().includes(activeTxSearchQuery);
+      const matchBuyer = tx.buyer.toLowerCase().includes(activeTxSearchQuery);
+      if (!matchId && !matchBuyer) return false;
+    }
+    if (activeTxItemFilter !== 'all') {
+      const hasItem = tx.items && tx.items.some(i => i.name.toLowerCase() === activeTxItemFilter.toLowerCase());
+      if (!hasItem && tx.package !== activeTxItemFilter) return false;
+    }
+    return true;
+  });
 
-  filtered.sort((a, b) => {
-    if (activeTxSortOrder === 'newest') return b.id.localeCompare(a.id);
-    if (activeTxSortOrder === 'oldest') return a.id.localeCompare(b.id);
-    if (activeTxSortOrder === 'highest') return b.total - a.total;
-    if (activeTxSortOrder === 'lowest') return a.total - b.total;
-    return 0;
-  });
+  filtered.sort((a, b) => {
+    if (activeTxSortOrder === 'newest') return b.id.localeCompare(a.id);
+    if (activeTxSortOrder === 'oldest') return a.id.localeCompare(b.id);
+    if (activeTxSortOrder === 'highest') return b.total - a.total;
+    if (activeTxSortOrder === 'lowest') return a.total - b.total;
+    return 0;
+  });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / activeTxPerPage));
-  if (activeTxPage > totalPages) activeTxPage = totalPages;
-  if (activeTxPage < 1) activeTxPage = 1;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / activeTxPerPage));
+  if (activeTxPage > totalPages) activeTxPage = totalPages;
+  if (activeTxPage < 1) activeTxPage = 1;
 
-  const startIndex = (activeTxPage - 1) * activeTxPerPage;
-  const paginatedData = filtered.slice(startIndex, startIndex + activeTxPerPage);
+  const startIndex = (activeTxPage - 1) * activeTxPerPage;
+  const paginatedData = filtered.slice(startIndex, startIndex + activeTxPerPage);
 
-  const curPageElem = document.getElementById('tx-current-page-num');
-  const totPageElem = document.getElementById('tx-total-page-num');
-  const prevBtn = document.getElementById('tx-btn-prev');
-  const nextBtn = document.getElementById('tx-btn-next');
-  if (curPageElem) curPageElem.innerText = activeTxPage;
-  if (totPageElem) totPageElem.innerText = totalPages;
-  if (prevBtn) prevBtn.disabled = (activeTxPage === 1);
-  if (nextBtn) nextBtn.disabled = (activeTxPage === totalPages || totalPages === 1);
+  const curPageElem = document.getElementById('tx-current-page-num');
+  const totPageElem = document.getElementById('tx-total-page-num');
+  const prevBtn = document.getElementById('tx-btn-prev');
+  const nextBtn = document.getElementById('tx-btn-next');
+  if (curPageElem) curPageElem.innerText = activeTxPage;
+  if (totPageElem) totPageElem.innerText = totalPages;
+  if (prevBtn) prevBtn.disabled = (activeTxPage === 1);
+  if (nextBtn) nextBtn.disabled = (activeTxPage === totalPages || totalPages === 1);
 
-  table.innerHTML = '';
-  if (paginatedData.length === 0) {
-    table.innerHTML = `<tr><td colspan="12" class="p-8 text-center text-zinc-500 italic">No transactions found matching your filter criteria.</td></tr>`;
-    return;
-  }
+  table.innerHTML = '';
+  if (paginatedData.length === 0) {
+    table.innerHTML = `<tr><td colspan="12" class="p-8 text-center text-zinc-500 italic">No transactions found matching your filter criteria.</td></tr>`;
+    return;
+  }
 
-  const userRank = getUserRank();
-  const isWritable = isBisnisTier(userRank);
-  const isTop = isTopAdmin(userRank);
+  const userRank = getUserRank();
+  const isWritable = isBisnisTier(userRank);
+  const isTop = isTopAdmin(userRank);
 
-  paginatedData.forEach(tx => {
-    const prioColor = tx.priority === 'HIGH' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
-    const statColor = tx.status === 'Released' || tx.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : (tx.status === 'Rejected' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-amber-500 text-black font-semibold');
+  paginatedData.forEach(tx => {
+    const prioColor = tx.priority === 'HIGH' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+    const statColor = tx.status === 'Released' || tx.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : (tx.status === 'Rejected' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-amber-500 text-black font-semibold');
 
-    const isFinalized = ['Released', 'Approved', 'Rejected'].includes(tx.status);
+    let actionButtonsHtml = `<button onclick="openTxDetailModal('${tx.id}')" class="p-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded-lg transition" title="View Detail"><i data-lucide="eye" class="w-3.5 h-3.5"></i></button>`;
+    
+    // KUNCI PERBAIKAN: Sembunyikan tombol Approve & Reject jika pesanan sudah masuk antrean Release atau selesai
+    if (isWritable) {
+      if (tx.status === 'Pending') {
+        actionButtonsHtml += `
+          <button onclick="quickApproveTx('${tx.id}')" class="p-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-lg transition ml-1" title="Approve & Send to Release Queue"><i data-lucide="check" class="w-3.5 h-3.5"></i></button>
+          <button onclick="quickRejectTx('${tx.id}')" class="p-1.5 bg-red-500/10 text-red-400 hover:bg-red-600 hover:text-white rounded-lg transition ml-1" title="Reject & Refund"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+        `;
+      } else if (tx.status === 'Rejected' && isTop) {
+        // Tombol hapus permanen tetap muncul jika statusnya Rejected (khusus Top Admin)
+        actionButtonsHtml += `
+          <button onclick="quickRejectTx('${tx.id}')" class="p-1.5 bg-zinc-500/10 text-zinc-400 hover:bg-red-600 hover:text-white rounded-lg transition ml-1" title="Delete Permanently"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+        `;
+      }
+    }
 
-    let actionButtonsHtml = `<button onclick="openTxDetailModal('${tx.id}')" class="p-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded-lg transition" title="View Detail"><i data-lucide="eye" class="w-3.5 h-3.5"></i></button>`;
-    
-    if (isWritable && (!isFinalized || isTop)) {
-      actionButtonsHtml += `
-        <button onclick="quickApproveTx('${tx.id}')" class="p-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-lg transition ml-1" title="Approve & Credit"><i data-lucide="check" class="w-3.5 h-3.5"></i></button>
-        <button onclick="quickRejectTx('${tx.id}')" class="p-1.5 bg-red-500/10 text-red-400 hover:bg-red-600 hover:text-white rounded-lg transition ml-1" title="Reject & Refund"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
-      `;
-    }
+    let voucherBadgeHtml = '';
+    if (tx.promoName) {
+      voucherBadgeHtml = `<span class="block text-[10px] bg-purple-500/10 text-purple-300 border border-purple-500/20 px-1.5 py-0.5 rounded-md mt-1 w-max" title="Voucher Diskon Applied"><i data-lucide="ticket" class="w-2.5 h-2.5 inline mr-0.5"></i> ${tx.promoName}</span>`;
+    }
 
-    let voucherBadgeHtml = '';
-    if (tx.promoName) {
-      voucherBadgeHtml = `<span class="block text-[10px] bg-purple-500/10 text-purple-300 border border-purple-500/20 px-1.5 py-0.5 rounded-md mt-1 w-max" title="Voucher Diskon Applied"><i data-lucide="ticket" class="w-2.5 h-2.5 inline mr-0.5"></i> ${tx.promoName}</span>`;
-    }
-
-    table.innerHTML += `
-      <tr class="hover:bg-white/[0.02] transition border-b border-[#1e2230] last:border-0">
-        <td class="p-4 font-mono text-zinc-300 font-semibold">${tx.id}</td>
-        <td class="p-4 font-semibold text-white flex items-center gap-2"><i data-lucide="user" class="w-3.5 h-3.5 text-zinc-500"></i> ${tx.buyer}</td>
-        <td class="p-3.5"><span class="px-2.5 py-0.5 bg-[#131622] border border-[#1e2230] text-zinc-300 rounded-full text-[10px] font-semibold uppercase">${tx.role}</span></td>
-        <td class="p-4 text-zinc-400">${tx.package}</td>
-        <td class="p-4 font-semibold text-white">${tx.qty}</td>
-        <td class="p-4">
-          <span class="font-bold text-amber-400 text-sm block">$${tx.total.toLocaleString()}</span>
-          ${voucherBadgeHtml}
-        </td>
-        <td class="p-4 text-zinc-300">${tx.processed}</td>
-        <td class="p-4 font-mono text-zinc-400 text-[11px]">${tx.time}</td>
-        <td class="p-4 text-amber-400 font-semibold font-mono">${tx.waiting}</td>
-        <td class="p-4"><span class="px-2.5 py-0.5 text-[10px] font-semibold rounded-full uppercase ${prioColor}">${tx.priority}</span></td>
-        <td class="p-4"><span class="px-2.5 py-0.5 text-[10px] font-semibold rounded-full uppercase ${statColor}">${tx.status}</span></td>
-        <td class="p-4 text-right whitespace-nowrap">${actionButtonsHtml}</td>
-      </tr>
-    `;
-  });
-  if (typeof lucide !== 'undefined') lucide.createIcons();
+    table.innerHTML += `
+      <tr class="hover:bg-white/[0.02] transition border-b border-[#1e2230] last:border-0">
+        <td class="p-4 font-mono text-zinc-300 font-semibold">${tx.id}</td>
+        <td class="p-4 font-semibold text-white flex items-center gap-2"><i data-lucide="user" class="w-3.5 h-3.5 text-zinc-500"></i> ${tx.buyer}</td>
+        <td class="p-3.5"><span class="px-2.5 py-0.5 bg-[#131622] border border-[#1e2230] text-zinc-300 rounded-full text-[10px] font-semibold uppercase">${tx.role}</span></td>
+        <td class="p-4 text-zinc-400">${tx.package}</td>
+        <td class="p-4 font-semibold text-white">${tx.qty}</td>
+        <td class="p-4">
+          <span class="font-bold text-amber-400 text-sm block">$${tx.total.toLocaleString()}</span>
+          ${voucherBadgeHtml}
+        </td>
+        <td class="p-4 text-zinc-300">${tx.processed}</td>
+        <td class="p-4 font-mono text-zinc-400 text-[11px]">${tx.time}</td>
+        <td class="p-4 text-amber-400 font-semibold font-mono">${tx.waiting}</td>
+        <td class="p-4"><span class="px-2.5 py-0.5 text-[10px] font-semibold rounded-full uppercase ${prioColor}">${tx.priority}</span></td>
+        <td class="p-4"><span class="px-2.5 py-0.5 text-[10px] font-semibold rounded-full uppercase ${statColor}">${tx.status}</span></td>
+        <td class="p-4 text-right whitespace-nowrap">${actionButtonsHtml}</td>
+      </tr>
+    `;
+  });
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 let currentModalTxId = null;
@@ -1773,125 +1782,170 @@ function approveModalOrder() { if (currentModalTxId) quickApproveTx(currentModal
 function rejectModalOrder() { if (currentModalTxId) quickRejectTx(currentModalTxId); closeTxDetailModal(); }
 
 function quickApproveTx(txId) {
-  const userRank = getUserRank();
-  if (!isBisnisTier(userRank)) { 
-    showToast("ACCESS DENIED", "Read-Only mode cannot validate orders!", "error"); 
-    return; 
-  }
-  
-  const txIndex = adminTransactions.findIndex(t => t.id === txId);
-  if (txIndex !== -1) {
-    const tx = adminTransactions[txIndex];
-    const isFinalized = ['Released', 'Approved', 'Rejected'].includes(tx.status);
-    
-    if (isFinalized && !isBisnisTier(userRank)) {
-      showToast("ACCESS DENIED", "You do not have permission to modify completed transactions!", "error");
-      return;
-    }
+  const userRank = getUserRank();
+  if (!isBisnisTier(userRank)) { 
+    showToast("ACCESS DENIED", "Read-Only mode cannot validate orders!", "error"); 
+    return; 
+  }
+  
+  const txIndex = adminTransactions.findIndex(t => t.id === txId);
+  if (txIndex !== -1) {
+    const tx = adminTransactions[txIndex];
+    const isFinalized = ['Released', 'Approved', 'Rejected'].includes(tx.status);
+    
+    if (isFinalized && !isBisnisTier(userRank)) {
+      showToast("ACCESS DENIED", "You do not have permission to modify completed transactions!", "error");
+      return;
+    }
 
-    if (tx.status === 'Pending') {
-      tx.status = 'Waiting Release';
-      tx.processed = currentLoggedInUser || 'ADMIN';
-    } else if (tx.status !== 'Approved' && tx.status !== 'Released') {
-      vaultBalance += tx.total;
-      tx.status = 'Released'; 
-      tx.processed = currentLoggedInUser || 'ADMIN'; 
-    }
+    // Pindah ke Antrean Release
+    if (tx.status === 'Pending') {
+      tx.status = 'Waiting Release';
+      tx.processed = currentLoggedInUser || 'ADMIN';
+    } 
+    // Pencairan dari Antrean Release -> Masuk Brangkas
+    else if (tx.status === 'Waiting Release') {
+      vaultBalance += tx.total;
+      tx.status = 'Released'; 
+      tx.processed = currentLoggedInUser || 'ADMIN'; 
+    }
 
-    // PERBAIKAN: Kirim status yang berubah ke Firebase
-    if (typeof db !== 'undefined' && db) {
-        const updates = {};
-        updates[`ton_global_state/adminTransactions/${txIndex}/status`] = tx.status;
-        updates[`ton_global_state/adminTransactions/${txIndex}/processed`] = tx.processed;
-        updates[`ton_global_state/vaultBalance`] = vaultBalance;
-        db.ref().update(updates);
-    }
+    // KUNCI PERBAIKAN: Sinkronisasi Multipel ke Firebase Secara Bersamaan
+    if (typeof db !== 'undefined' && db) {
+        const updates = {};
+        updates['ton_global_state/adminTransactions'] = adminTransactions;
+        updates['ton_global_state/vaultBalance'] = vaultBalance;
+        db.ref().update(updates);
+    }
 
-    saveAppData();
-    updateDashboardData();
-    showToast("PROCESSED", `TXID ${tx.id} berhasil diproses!`, "success");
-  }
+    // Simpan lokal dan paksa render semua komponen UI Keuangan
+    saveAppData();
+    updateDashboardData(); 
+    
+    showToast("PROCESSED", `TXID ${tx.id} berhasil diproses!`, "success");
+  }
 }
 
 function quickRejectTx(txId) {
-  const userRank = getUserRank();
-  if (!isBisnisTier(userRank)) {
-    showToast("ACCESS DENIED", "Read-Only mode cannot reject orders!", "error");
-    return;
-  }
+  const userRank = getUserRank();
+  if (!isBisnisTier(userRank)) {
+    showToast("ACCESS DENIED", "Read-Only mode cannot reject orders!", "error");
+    return;
+  }
 
-  const txIndex = adminTransactions.findIndex(t => t.id === txId);
-  if (txIndex === -1) {
-    showToast("ERROR", "Transaction not found!", "error");
-    return;
-  }
+  const txIndex = adminTransactions.findIndex(t => t.id === txId);
+  if (txIndex === -1) {
+    showToast("ERROR", "Transaction not found!", "error");
+    return;
+  }
 
-  const tx = adminTransactions[txIndex];
-  const isFinalized = ['Released', 'Approved', 'Rejected'].includes(tx.status);
-  
-  if (isFinalized && !isTopAdmin(userRank)) {
-    showToast("ACCESS DENIED", "You do not have permission to modify completed transactions!", "error");
-    return;
-  }
+  const tx = adminTransactions[txIndex];
 
-  showCustomConfirm("REJECT ORDER", `Reject order ${tx.id} from ${tx.buyer}? Stock will be refunded.`, () => {
-    const inventoryUpdates = {};
-    if (tx.items && Array.isArray(tx.items)) {
-      tx.items.forEach(cartItem => {
-        const invIndex = vaultInventory.findIndex(i => i.name === cartItem.name);
-        if (invIndex !== -1) {
-          let invItem = vaultInventory[invIndex];
-          invItem.stock += cartItem.qty;
-          if (invItem.stock > 5) invItem.badge = 'NORMAL';
-          else if (invItem.stock > 0) invItem.badge = 'LOW';
-          
-          inventoryUpdates[`ton_global_state/vaultInventory/${invIndex}/stock`] = invItem.stock;
-          inventoryUpdates[`ton_global_state/vaultInventory/${invIndex}/badge`] = invItem.badge;
-        }
-      });
-    }
+  // BUG FIX: FITUR HAPUS PERMANEN JIKA PESANAN SUDAH DITOLAK SEBELUMNYA
+  if (tx.status === 'Rejected') {
+    if (!isTopAdmin(userRank)) {
+      showToast("ACCESS DENIED", "Hanya Moderator yang berhak menghapus riwayat permanen!", "error");
+      return;
+    }
+    showCustomConfirm("HAPUS PERMANEN", `Hapus riwayat pesanan ${tx.id} dari sistem secara permanen?`, () => {
+      adminTransactions.splice(txIndex, 1);
+      
+      // Paksa sinkronisasi penghapusan ke Firebase
+      if (typeof db !== 'undefined' && db) {
+        db.ref('ton_global_state/adminTransactions').set(adminTransactions);
+      }
+      
+      saveAppData(); 
+      updateDashboardData();
+      showToast("DELETED", "Riwayat pesanan berhasil dihapus permanen.", "success");
+    });
+    return;
+  }
 
-    tx.status = 'Rejected';
-    tx.processed = currentLoggedInUser || 'ADMIN';
+  const isFinalized = ['Released', 'Approved', 'Rejected'].includes(tx.status);
+  if (isFinalized && !isTopAdmin(userRank)) {
+    showToast("ACCESS DENIED", "You do not have permission to modify completed transactions!", "error");
+    return;
+  }
 
-    // PERBAIKAN: Kembalikan stok dan tolak transaksi di server
-    if (typeof db !== 'undefined' && db) {
-        const updates = { ...inventoryUpdates };
-        updates[`ton_global_state/adminTransactions/${txIndex}/status`] = tx.status;
-        updates[`ton_global_state/adminTransactions/${txIndex}/processed`] = tx.processed;
-        db.ref().update(updates);
-    }
+  showCustomConfirm("REJECT ORDER", `Tolak pesanan ${tx.id} dari ${tx.buyer}? Stok akan dikembalikan.`, () => {
+    const inventoryUpdates = {};
+    if (tx.items && Array.isArray(tx.items)) {
+      tx.items.forEach(cartItem => {
+        const invIndex = vaultInventory.findIndex(i => i.name === cartItem.name);
+        if (invIndex !== -1) {
+          let invItem = vaultInventory[invIndex];
+          invItem.stock += cartItem.qty;
+          if (invItem.stock > 5) invItem.badge = 'NORMAL';
+          else if (invItem.stock > 0) invItem.badge = 'LOW';
+          
+          inventoryUpdates[`ton_global_state/vaultInventory/${invIndex}/stock`] = invItem.stock;
+          inventoryUpdates[`ton_global_state/vaultInventory/${invIndex}/badge`] = invItem.badge;
+        }
+      });
+    }
 
-    saveAppData();
-    updateDashboardData();
-    renderTxProcessTable();
-    renderReleaseOutstanding();
-    renderVaultInventory();
-    renderMarketplace(currentMarketplaceFilter);
-    showToast("ORDER REJECTED", `Order ${tx.id} has been rejected and stock refunded.`, "error");
-  });
+    // BUG FIX: KURANGI TOTAL BELANJA WARGA DI LEADERBOARD AGAR DATA KEUANGAN AKURAT
+    let spenderIndex = orgLeaderboard.findIndex(s => s.name === tx.buyer);
+    if (spenderIndex !== -1) {
+      orgLeaderboard[spenderIndex].spent -= tx.total;
+      // Jika setelah dikurangi pengeluarannya jadi 0 atau minus, hapus dari klasemen
+      if (orgLeaderboard[spenderIndex].spent <= 0) {
+         orgLeaderboard.splice(spenderIndex, 1); 
+      }
+    }
+
+    tx.status = 'Rejected';
+    tx.processed = currentLoggedInUser || 'ADMIN';
+
+    if (typeof db !== 'undefined' && db) {
+        const updates = { ...inventoryUpdates };
+        updates[`ton_global_state/orgLeaderboard`] = orgLeaderboard; // Sinkronisasi keuangan
+        db.ref().update(updates);
+        
+        // Push ulang seluruh array transaksi agar aman
+        db.ref('ton_global_state/adminTransactions').set(adminTransactions);
+    }
+
+    saveAppData(); 
+    updateDashboardData();
+    showToast("ORDER REJECTED", `Pesanan ${tx.id} ditolak dan statistik uang di-update.`, "error");
+  });
 }
 
 function releaseAllOutstanding() {
-  if (!isBisnisTier(getUserRank())) { showToast("ACCESS DENIED", "Mode Read-Only tidak dapat merilis saldo!", "error"); return; }
-  const waitingReleaseTx = adminTransactions.filter(t => t.status === 'Waiting Release');
-  if (waitingReleaseTx.length === 0) { showToast("WARNING", "Tidak ada pesanan dengan status Waiting Release!", "error"); return; }
-  
-  showCustomConfirm("Release all balances", `Otensikasi dan rilis total ${waitingReleaseTx.length} pesanan ke dalam kas brangkas?`, () => {
-    let totalReleasedCash = 0;
-    waitingReleaseTx.forEach(tx => {
-      tx.status = 'Released';
-      tx.processed = currentLoggedInUser || 'ADMIN';
-      vaultBalance += tx.total;
-      totalReleasedCash += tx.total;
-    });
-    saveAppData();
-    updateDashboardData();
-    sendDiscordWebhook(ORDERS_WEBHOOK_URL, "🟢 MASS SALDO RELEASED", `Sebanyak **${waitingReleaseTx.length} pesanan** telah dirilis oleh **${currentLoggedInUser.toUpperCase()}**. Total saldo **$${totalReleasedCash.toLocaleString()}** masuk ke brangkas!`, [], 3066993);
-    showToast("SUCCESS", `Berhasil merilis ${waitingReleaseTx.length} pesanan sebesar $${totalReleasedCash.toLocaleString()} ke Brangkas!`, "success");
-  });
-}
+  if (!isBisnisTier(getUserRank())) { showToast("ACCESS DENIED", "Mode Read-Only tidak dapat merilis saldo!", "error"); return; }
+  
+  const waitingReleaseTx = adminTransactions.filter(t => t.status === 'Waiting Release');
+  if (waitingReleaseTx.length === 0) { showToast("WARNING", "Tidak ada pesanan dengan status Waiting Release!", "error"); return; }
+  
+  showCustomConfirm("Release all balances", `Otentikasi dan rilis total ${waitingReleaseTx.length} pesanan ke dalam kas brangkas?`, () => {
+    let totalReleasedCash = 0;
+    
+    // Proses semua antrean sekaligus
+    waitingReleaseTx.forEach(tx => {
+      tx.status = 'Released';
+      tx.processed = currentLoggedInUser || 'ADMIN';
+      vaultBalance += tx.total;
+      totalReleasedCash += tx.total;
+    });
 
+    // KUNCI PERBAIKAN: Sinkronisasi Multipel ke Firebase Secara Bersamaan
+    if (typeof db !== 'undefined' && db) {
+        const updates = {};
+        updates['ton_global_state/adminTransactions'] = adminTransactions;
+        updates['ton_global_state/vaultBalance'] = vaultBalance;
+        db.ref().update(updates);
+    }
+
+    // Simpan lokal dan paksa render semua komponen UI Keuangan
+    saveAppData();
+    updateDashboardData();
+    
+    sendDiscordWebhook(ORDERS_WEBHOOK_URL, "🟢 MASS SALDO RELEASED", `Sebanyak **${waitingReleaseTx.length} pesanan** telah dirilis oleh **${currentLoggedInUser.toUpperCase()}**. Total saldo **$${totalReleasedCash.toLocaleString()}** masuk ke brangkas!`, [], 3066993);
+    showToast("SUCCESS", `Berhasil merilis ${waitingReleaseTx.length} pesanan sebesar $${totalReleasedCash.toLocaleString()} ke Brangkas!`, "success");
+  });
+}
 function filterVaultInventory(category) {
   activeInventoryFilter = category;
   document.querySelectorAll('#vault-inventory-filters button').forEach(btn => {
@@ -2275,52 +2329,59 @@ function submitEditItem() {
 }
 
 function renderReleaseOutstanding() {
-  const table = document.getElementById('release-outstanding-table');
-  if (!table) return;
+  const table = document.getElementById('release-outstanding-table');
+  if (!table) return;
 
-  const waitingTx = adminTransactions.filter(t => t.status === 'Waiting Release');
-  const totalOutstanding = waitingTx.reduce((sum, tx) => sum + tx.total, 0);
+  // HANYA ambil pesanan yang ada di antrean "Waiting Release"
+  const waitingTx = adminTransactions.filter(t => t.status === 'Waiting Release');
+  const totalOutstanding = waitingTx.reduce((sum, tx) => sum + tx.total, 0);
 
-  const countElem = document.getElementById('outstanding-count');
-  const totalElem = document.getElementById('outstanding-total');
-  if (countElem) countElem.innerText = waitingTx.length;
-  if (totalElem) totalElem.innerText = "$" + totalOutstanding.toLocaleString();
+  // KUNCI PERBAIKAN: Menyamakan ID elemen dengan yang ada di file HTML
+  const totalElem = document.getElementById('out-total-held');
+  if (totalElem) totalElem.innerText = "$" + totalOutstanding.toLocaleString();
 
-  const canRelease = isBisnisTier(getUserRank());
-  const releaseBtn = document.getElementById('release-all-btn');
-  if (releaseBtn) {
-    releaseBtn.style.display = canRelease && waitingTx.length > 0 ? 'inline-flex' : 'none';
-  }
+  // Memperbarui semua lencana angka merah/kuning di sidebar maupun dasbor
+  const waitingCounts = document.querySelectorAll('#out-waiting-count, #outstanding-count');
+  waitingCounts.forEach(el => {
+    el.innerText = waitingTx.length;
+  });
 
-  if (waitingTx.length === 0) {
-    table.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-zinc-500 italic">No transactions are awaiting release at this time.</td></tr>`;
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-    return;
-  }
+  const canRelease = isBisnisTier(getUserRank());
+  const releaseBtn = document.getElementById('release-all-btn') || document.querySelector('button[onclick="releaseAllOutstanding()"]');
+  if (releaseBtn) {
+    releaseBtn.style.display = canRelease && waitingTx.length > 0 ? 'inline-flex' : 'none';
+  }
 
-  table.innerHTML = '';
-  waitingTx.forEach(tx => {
-    const itemNames = tx.items ? tx.items.map(i => `${i.name} (x${i.qty})`).join(", ") : `${tx.qty} items`;
-    
-    const actionBtn = canRelease
-      ? `<button onclick="quickApproveTx('${tx.id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5">
-          <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Release Now
-        </button>`
-      : `<span class="text-[10px] text-zinc-500 italic">Read Only</span>`;
+  if (waitingTx.length === 0) {
+    table.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-zinc-500 italic">No transactions are awaiting release at this time.</td></tr>`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    return;
+  }
 
-    table.innerHTML += `
-      <tr class="hover:bg-white/[0.02] transition border-b border-[#1e2230] last:border-0">
-        <td class="p-3.5 font-mono text-white font-bold text-xs">${tx.id}</td>
-        <td class="p-3.5 font-bold text-white">${tx.buyer}</td>
-        <td class="p-3.5 text-zinc-300 max-w-xs truncate" title="${itemNames}">${itemNames}</td>
-        <td class="p-3.5 font-mono text-zinc-400 text-[11px]">${tx.time}</td>
-        <td class="p-3.5 font-bold text-amber-400">$${tx.total.toLocaleString()}</td>
-        <td class="p-3.5"><span class="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-bold uppercase rounded-full">${tx.processed}</span></td>
-        <td class="p-3.5 text-right">${actionBtn}</td>
-      </tr>
-    `;
-  }); 
-  if (typeof lucide !== 'undefined') lucide.createIcons();
+  table.innerHTML = '';
+  waitingTx.forEach(tx => {
+    const itemNames = tx.items ? tx.items.map(i => `${i.name} (x${i.qty})`).join(", ") : `${tx.qty} items`;
+    
+    const actionBtn = canRelease
+      ? `<button onclick="quickApproveTx('${tx.id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow-sm flex items-center gap-1.5">
+          <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Release Now
+        </button>`
+      : `<span class="text-[10px] text-zinc-500 italic">Read Only</span>`;
+
+    table.innerHTML += `
+      <tr class="hover:bg-white/[0.02] transition border-b border-[#1e2230] last:border-0">
+        <td class="p-3.5"><input type="checkbox" class="rounded bg-zinc-800 border-[#1e2230]" disabled></td>
+        <td class="p-3.5 font-mono text-zinc-400 text-[11px]">${tx.time}</td>
+        <td class="p-3.5 font-mono text-white font-bold text-xs">${tx.id}</td>
+        <td class="p-3.5 font-bold text-white flex items-center gap-2"><i data-lucide="user" class="w-3.5 h-3.5 text-zinc-500"></i> ${tx.buyer}</td>
+        <td class="p-3.5 text-zinc-300 max-w-xs truncate" title="${itemNames}">${itemNames}</td>
+        <td class="p-3.5"><span class="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-bold uppercase rounded-full">${tx.processed}</span></td>
+        <td class="p-3.5 font-bold text-amber-400">$${tx.total.toLocaleString()}</td>
+        <td class="p-3.5 text-right">${actionBtn}</td>
+      </tr>
+    `;
+  }); 
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function renderVaultHistory(isRefresh = false) {
@@ -2968,37 +3029,73 @@ const profileData = {
 }
 
 function updateDashboardData() {
-  const balElem = document.getElementById('sidebar-vault-balance');
-  if (balElem) balElem.innerText = "$" + vaultBalance.toLocaleString();
-  const syncTime = document.getElementById('synced-time');
-  if (syncTime) syncTime.innerText = new Date().toLocaleTimeString('en-US');
+  // 1. KUNCI PERBAIKAN MUTLAK: HANYA HITUNG TRANSAKSI YANG SUDAH SELESAI
+  let newLeaderboard = [];
+  
+  if (adminTransactions && Array.isArray(adminTransactions)) {
+    adminTransactions.forEach(tx => {
+      // HANYA menghitung pesanan yang uangnya benar-benar sudah masuk (Released / Approved)
+      if (tx.status === 'Released' || tx.status === 'Approved') {
+        let existing = newLeaderboard.find(s => s.name === tx.buyer);
+        if (existing) {
+          existing.spent += tx.total;
+        } else {
+          newLeaderboard.push({ name: tx.buyer, role: tx.role, spent: tx.total, top: false });
+        }
+      }
+    });
+  }
+  
+  // Terapkan data yang sudah 100% bersih ke variabel global
+  orgLeaderboard = newLeaderboard;
+  
+  // Paksa hapus data hantu di Firebase dengan data yang baru
+  if (typeof db !== 'undefined' && db) {
+    db.ref('ton_global_state/orgLeaderboard').set(orgLeaderboard);
+  }
 
-  let orgSpendTotal = adminTransactions.filter(t => t.status === 'Released' || t.status === 'Approved').reduce((s, i) => s + i.total, 0);
-  const orgSpendElem = document.getElementById('hq-org-spending');
-  if (orgSpendElem) orgSpendElem.innerText = "$" + orgSpendTotal.toLocaleString();
+  // 2. UPDATE UI BALANCE & SYNC TIME
+  const balElem = document.getElementById('sidebar-vault-balance');
+  if (balElem) balElem.innerText = "$" + vaultBalance.toLocaleString();
+  const syncTime = document.getElementById('synced-time');
+  if (syncTime) syncTime.innerText = new Date().toLocaleTimeString('en-US');
 
-  if (orgLeaderboard.length > 0) {
-    orgLeaderboard.sort((a,b) => b.spent - a.spent);
-    if (document.getElementById('hq-top-spender-name')) document.getElementById('hq-top-spender-name').innerText = orgLeaderboard[0].name;
-    if (document.getElementById('hq-top-spender-val')) document.getElementById('hq-top-spender-val').innerHTML = `$${orgLeaderboard[0].spent.toLocaleString()} <span class="text-[10px] text-zinc-500">total</span>`;
-  } else {
-    if (document.getElementById('hq-top-spender-name')) document.getElementById('hq-top-spender-name').innerText = "None";
-    if (document.getElementById('hq-top-spender-val')) document.getElementById('hq-top-spender-val').innerHTML = `$0 <span class="text-[10px] text-zinc-500">total</span>`;
-  }
+  // 3. UPDATE TOTAL ORG SPENDING
+  let orgSpendTotal = 0;
+  if (orgLeaderboard.length > 0) {
+     orgSpendTotal = orgLeaderboard.reduce((s, i) => s + i.spent, 0);
+  }
+  const orgSpendElem = document.getElementById('hq-org-spending');
+  if (orgSpendElem) orgSpendElem.innerText = "$" + orgSpendTotal.toLocaleString();
 
-  const myOrdersList = document.getElementById('my-orders-list');
-  if (myOrdersList) {
-    const myOrders = adminTransactions.filter(o => o.buyer === currentLoggedInUser || o.buyer === "ADMIN");
-    myOrdersList.innerHTML = myOrders.length === 0 ? `<p class="text-zinc-500 italic">No orders yet.</p>` : '';
-    myOrders.forEach(o => {
-      myOrdersList.innerHTML += `<div class="bg-[#131622] p-3.5 rounded-xl border border-[#1e2230] flex justify-between items-center"><div><span class="font-mono text-zinc-400 text-[11px] font-bold">${o.id}</span><p class="font-bold text-white text-xs">${o.items ? o.items.map(i => `${i.name} (x${i.qty})`).join(', ') : 'Weapon Items'}</p></div><div class="text-right"><span class="font-tech font-bold text-amber-400 text-base">$${o.total.toLocaleString()}</span><p class="text-[10px] font-bold uppercase ${o.status === 'Released' || o.status === 'Approved' ? 'text-emerald-400' : 'text-amber-500'}">${o.status}</p></div></div>`;
-    });
-  }
-  renderTxProcessTable(); renderReleaseOutstanding(); renderVaultHistory(); renderLeaderboard();
-  
-  updateLockdownUI();
-  renderBlacklistTable();
-  renderStaffKPITable();
+  // 4. UPDATE TOP SPENDER WIDGET (DASHBOARD ATAS)
+  if (orgLeaderboard.length > 0) {
+    orgLeaderboard.sort((a,b) => b.spent - a.spent);
+    if (document.getElementById('hq-top-spender-name')) document.getElementById('hq-top-spender-name').innerText = orgLeaderboard[0].name;
+    if (document.getElementById('hq-top-spender-val')) document.getElementById('hq-top-spender-val').innerHTML = `$${orgLeaderboard[0].spent.toLocaleString()} <span class="text-[10px] text-zinc-500">total</span>`;
+  } else {
+    if (document.getElementById('hq-top-spender-name')) document.getElementById('hq-top-spender-name').innerText = "None";
+    if (document.getElementById('hq-top-spender-val')) document.getElementById('hq-top-spender-val').innerHTML = `$0 <span class="text-[10px] text-zinc-500">total</span>`;
+  }
+
+  // 5. UPDATE MY ORDERS WIDGET
+  const myOrdersList = document.getElementById('my-orders-list');
+  if (myOrdersList) {
+    const myOrders = adminTransactions.filter(o => o.buyer === currentLoggedInUser || o.buyer === "ADMIN");
+    myOrdersList.innerHTML = myOrders.length === 0 ? `<p class="text-zinc-500 italic">No orders yet.</p>` : '';
+    myOrders.forEach(o => {
+      myOrdersList.innerHTML += `<div class="bg-[#131622] p-3.5 rounded-xl border border-[#1e2230] flex justify-between items-center"><div><span class="font-mono text-zinc-400 text-[11px] font-bold">${o.id}</span><p class="font-bold text-white text-xs">${o.items ? o.items.map(i => `${i.name} (x${i.qty})`).join(', ') : 'Weapon Items'}</p></div><div class="text-right"><span class="font-tech font-bold text-amber-400 text-base">$${o.total.toLocaleString()}</span><p class="text-[10px] font-bold uppercase ${o.status === 'Released' || o.status === 'Approved' ? 'text-emerald-400' : 'text-amber-500'}">${o.status}</p></div></div>`;
+    });
+  }
+  
+  // 6. RENDER ULANG SEMUA KOMPONEN
+  if(typeof renderTxProcessTable === 'function') renderTxProcessTable(); 
+  if(typeof renderReleaseOutstanding === 'function') renderReleaseOutstanding(); 
+  if(typeof renderVaultHistory === 'function') renderVaultHistory(); 
+  if(typeof renderLeaderboard === 'function') renderLeaderboard();
+  if(typeof updateLockdownUI === 'function') updateLockdownUI();
+  if(typeof renderBlacklistTable === 'function') renderBlacklistTable();
+  if(typeof renderStaffKPITable === 'function') renderStaffKPITable();
 }
 
 function triggerSystemReset() {
@@ -6383,4 +6480,143 @@ window.openImageInputModal = function(callback) {
 // Eksekusi render otomatis
 if (typeof window.renderMessageBoard === 'function') {
   window.renderMessageBoard();
+}
+
+// ==========================================
+// FITUR INTERNAL: MONEY LAUNDRY
+// ==========================================
+
+// 1. Fungsi Tambah Catatan Cuci Uang
+function submitLaundryJob() {
+  const userRank = getUserRank();
+  if (!isBisnisTier(userRank)) {
+    showToast("ACCESS DENIED", "Hanya internal faksi yang berhak mengakses ini!", "error");
+    return;
+  }
+
+  const dirtyInput = document.getElementById('laundry-dirty-amount');
+  const washerInput = document.getElementById('laundry-washer-name');
+  const cleanInput = document.getElementById('laundry-clean-amount');
+
+  const dirtyAmt = parseInt(dirtyInput.value.replace(/[^0-9]/g, ''));
+  const cleanAmt = parseInt(cleanInput.value.replace(/[^0-9]/g, ''));
+  const washer = washerInput.value.trim();
+
+  if (!dirtyAmt || !cleanAmt || !washer) {
+    showToast("WARNING", "Harap isi semua nominal dan nama pencuci!", "error");
+    return;
+  }
+
+  const newJobId = "LND-" + Math.random().toString(36).substr(2, 6).toUpperCase();
+  const loggedBy = currentLoggedInUser || 'ADMIN';
+
+  const newJob = {
+    id: newJobId,
+    dirty: dirtyAmt,
+    clean: cleanAmt,
+    washer: washer,
+    status: 'WAITING',
+    time: new Date().toLocaleTimeString('en-US'),
+    loggedBy: loggedBy
+  };
+
+  laundryData.push(newJob);
+
+  if (typeof db !== 'undefined' && db) {
+    db.ref('ton_global_state/laundryData').set(laundryData);
+  }
+
+  // --- MENGGUNAKAN WEBHOOK KHUSUS LAUNDRY ---
+  const embedFields = [
+    { name: "Ref ID", value: newJobId, inline: true },
+    { name: "Pencuci (Washer)", value: washer, inline: true },
+    { name: "Dicatat Oleh", value: loggedBy, inline: true },
+    { name: "Uang Merah (Kotor)", value: `$${dirtyAmt.toLocaleString()}`, inline: true },
+    { name: "Estimasi Bersih", value: `$${cleanAmt.toLocaleString()}`, inline: true },
+    { name: "Status", value: "⏳ WAITING", inline: true }
+  ];
+  if (typeof sendDiscordWebhook === 'function') {
+    sendDiscordWebhook(LAUNDRY_WEBHOOK_URL, "🔴 LAUNDRY JOB SUBMITTED", `Uang merah telah diserahkan ke pencuci. Menunggu proses pencucian selesai.`, embedFields, 16711680);
+  }
+  // ------------------------------------------
+
+  dirtyInput.value = ''; washerInput.value = ''; cleanInput.value = '';
+  renderLaundryTable();
+  showToast("RECORDED", `Uang merah $${dirtyAmt.toLocaleString()} diserahkan ke ${washer}.`, "success");
+}
+
+// 2. Fungsi ACC (Clear) Cucian Selesai
+function accLaundryJob(jobId) {
+  const userRank = getUserRank();
+  if (!isBisnisTier(userRank)) return showToast("DENIED", "Read-only mode!", "error");
+
+  const idx = laundryData.findIndex(j => j.id === jobId);
+  if (idx !== -1 && laundryData[idx].status === 'WAITING') {
+    showCustomConfirm("ACC LAUNDRY", `Uang sudah bersih? $${laundryData[idx].clean.toLocaleString()} akan dimasukkan ke brangkas!`, () => {
+      
+      laundryData[idx].status = 'CLEARED';
+      vaultBalance += laundryData[idx].clean; 
+      
+      const accBy = currentLoggedInUser || 'ADMIN';
+
+      if (typeof db !== 'undefined' && db) {
+        db.ref('ton_global_state/laundryData').set(laundryData);
+        db.ref('ton_global_state/vaultBalance').set(vaultBalance);
+      }
+
+      // --- MENGGUNAKAN WEBHOOK KHUSUS LAUNDRY ---
+      const embedFieldsClear = [
+        { name: "Ref ID", value: jobId, inline: true },
+        { name: "Pencuci (Washer)", value: laundryData[idx].washer, inline: true },
+        { name: "Di-ACC Oleh", value: accBy, inline: true },
+        { name: "Uang Masuk Vault", value: `$${laundryData[idx].clean.toLocaleString()}`, inline: true }
+      ];
+      if (typeof sendDiscordWebhook === 'function') {
+        sendDiscordWebhook(LAUNDRY_WEBHOOK_URL, "🟢 LAUNDRY CLEARED", `Uang bersih telah diterima dan saldo Vault otomatis bertambah.`, embedFieldsClear, 65280);
+      }
+      // ------------------------------------------
+
+      renderLaundryTable();
+      if (typeof updateDashboardData === 'function') updateDashboardData();
+      showToast("CLEARED", "Uang bersih berhasil masuk ke sistem keuangan!", "success");
+    });
+  }
+}
+
+// 3. Render Tabel UI
+function renderLaundryTable() {
+  const tbody = document.getElementById('laundry-table-body');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  if (laundryData.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-zinc-500 italic">Belum ada catatan pencucian uang.</td></tr>`;
+    return;
+  }
+
+  // Urutkan dari yang terbaru
+  const sortedData = [...laundryData].reverse();
+
+  sortedData.forEach(job => {
+    const isWaiting = job.status === 'WAITING';
+    const statBadge = isWaiting 
+      ? `<span class="px-2.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-bold rounded uppercase animate-pulse">WAITING</span>`
+      : `<span class="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold rounded uppercase">CLEARED</span>`;
+
+    const actionBtn = isWaiting 
+      ? `<button onclick="accLaundryJob('${job.id}')" class="px-3 py-1 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white border border-emerald-600/30 rounded text-xs font-bold transition">ACC CLEAR</button>`
+      : `<span class="text-zinc-600 text-xs italic">Done</span>`;
+
+    tbody.innerHTML += `
+      <tr class="border-b border-[#1e2230] hover:bg-[#161a29] transition">
+        <td class="p-3 font-mono text-zinc-400 text-[11px]">${job.id}</td>
+        <td class="p-3 font-semibold text-white">${job.washer}</td>
+        <td class="p-3 font-bold text-red-400 font-mono">$${job.dirty.toLocaleString()}</td>
+        <td class="p-3 font-bold text-emerald-400 font-mono">$${job.clean.toLocaleString()}</td>
+        <td class="p-3 text-zinc-400 text-xs">${job.loggedBy}</td>
+        <td class="p-3">${statBadge}</td>
+        <td class="p-3 text-right">${actionBtn}</td>
+      </tr>
+    `;
+  });
 }
