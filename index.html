@@ -296,7 +296,13 @@
     <i data-lucide="users" class="w-4 h-4 text-red-500 shrink-0"></i>
     <span class="whitespace-nowrap truncate">List Roster The Old Norse</span>
   </button>
+  <button onclick="switchTab('laundry-section')" data-tab="laundry-section" class="nav-btn w-full flex items-center gap-3 px-3 py-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl">
+  <i data-lucide="refresh-cw" class="w-4 h-4 text-red-500 shrink-0"></i>
+  <span class="whitespace-nowrap truncate">Money Laundry</span>
+</button>
 </div>
+
+
 
         <!-- 5. MODERATOR SERVICE -->
         <div class="mod-only space-y-1 pt-3 mt-2 border-t border-[#1e2230] hidden">
@@ -390,6 +396,54 @@
       <!-- KONTEN TAB -->
       <div id="tab-content">
         
+<div id="tab-laundry-section" class="tab-panel hidden space-y-6">
+  
+  <!-- FORM INPUT -->
+  <div class="flex flex-wrap gap-4 bg-[#131622] p-5 rounded-2xl border border-[#1e2230] shadow-sm">
+    <div class="flex-1 min-w-[160px]">
+      <label class="block text-xs font-bold text-zinc-500 uppercase mb-2">Uang Merah</label>
+      <input type="number" id="laundry-dirty-amount" placeholder="Isi Sesuai Nominal" class="w-full bg-[#0e1017] border border-[#1e2230] text-red-400 font-bold font-mono rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-red-500/50 transition">
+    </div>
+    <div class="flex-1 min-w-[160px]">
+      <label class="block text-xs font-bold text-zinc-500 uppercase mb-2">Uang Bersih</label>
+      <input type="number" id="laundry-clean-amount" placeholder="Isi Sesuai Nominal " class="w-full bg-[#0e1017] border border-[#1e2230] text-emerald-400 font-bold font-mono rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500/50 transition">
+    </div>
+    <div class="flex-1 min-w-[160px]">
+      <label class="block text-xs font-bold text-zinc-500 uppercase mb-2">User</label>
+      <input type="text" id="laundry-washer-name" placeholder="Nama Member " class="w-full bg-[#0e1017] border border-[#1e2230] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-zinc-500/50 transition">
+    </div>
+    <div class="flex items-end">
+      <button onclick="submitLaundryJob()" class="h-[46px] px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-600/20">
+        Submit Record
+      </button>
+    </div>
+  </div>
+
+  <!-- TABLE CONTAINER -->
+  <div class="bg-[#131622] rounded-2xl border border-[#1e2230] overflow-hidden shadow-sm">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-sm whitespace-nowrap">
+        <thead class="bg-[#0e1017] text-zinc-500 text-[10px] uppercase font-bold tracking-wider border-b border-[#1e2230]">
+          <tr>
+            <th class="p-4 pl-5">Ref ID</th>
+            <th class="p-4">Pencuci</th>
+            <th class="p-4">Uang Merah</th>
+            <th class="p-4">Uang Bersih</th>
+            <th class="p-4">Dicatat Oleh</th>
+            <th class="p-4">Status</th>
+            <th class="p-4 pr-5 text-right">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="laundry-table-body">
+          <!-- Rendered by JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+  
+</div>
+
+
         <!-- 1. WEAPON SHOP / MARKETPLACE -->
         <div id="tab-weapon-shop" class="tab-panel hidden space-y-6">
          <!-- BARIS KONTROL MARKETPLACE: FILTER KIRI + SEARCH & SORT KANAN -->
