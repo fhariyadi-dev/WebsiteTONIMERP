@@ -299,6 +299,7 @@ function getEmptyAppState() {
 }
 
 let isFirebaseSynced = false; 
+let globalRenderTimeout = null; // Tambahkan baris ini
 
 function initCloudRealtimeSync() {
   if (!db) {
@@ -344,15 +345,17 @@ function initCloudRealtimeSync() {
 
     isInitialSnapshot = false;
     isFirebaseSynced = true;
-    if (typeof refreshAllUIDisplays === 'function') refreshAllUIDisplays();
-  }, (error) => {
-    console.error("Gagal menerima pembaruan Firebase:", error);
-    const backup = getSafeStorage('ton_global_state');
-    if (backup) applyGlobalState(backup);
-    isFirebaseSynced = true;
-    if (typeof refreshAllUIDisplays === 'function') refreshAllUIDisplays();
-  });
-}
+/// --- DEBOUNCE ANTI-FREEZE FIREBASE ---
+        clearTimeout(globalRenderTimeout);
+        
+        globalRenderTimeout = setTimeout(async () => {
+            if (typeof refreshAllUIDisplays === 'function') {
+                await refreshAllUIDisplays();
+            }
+        }, 500); // Jeda 500ms
+    }); // <-- Kurung tutup ini adalah pasangan dari stateRef.on('value', (snapshot) => {
+} // <-- Kurung tutup ini adalah pasangan dari function initCloudRealtimeSync()
+         
 
 function applyGlobalState(data) {
     if (!data) return;
@@ -408,32 +411,35 @@ Object.keys(rawProfiles).forEach(key => {
     ensureDeveloperAccountSeed();
 
     if (typeof checkAndApplyRankChanges === 'function') checkAndApplyRankChanges();
-
-    if (typeof refreshAllUIDisplays === 'function') {
-        refreshAllUIDisplays();
-    } else {
         if (typeof renderTonCatalog === 'function') renderTonCatalog();
         if (typeof renderCustomAccountsTable === 'function') renderCustomAccountsTable();
     }
-}
 
-function refreshAllUIDisplays() {
-  if (typeof updateDashboardData === 'function') updateDashboardData();
-  if (typeof renderMarketplace === 'function') renderMarketplace(currentMarketplaceFilter);
-  if (typeof renderVaultInventory === 'function') renderVaultInventory();
-  if (typeof renderTxProcessTable === 'function') renderTxProcessTable(true);
-  if (typeof renderReleaseOutstanding === 'function') renderReleaseOutstanding();
-  if (typeof renderVaultHistory === 'function') renderVaultHistory();
-  if (typeof renderLeaderboard === 'function') renderLeaderboard();
-  if (typeof renderTonCatalog === 'function') renderTonCatalog();
-  if (typeof renderBlacklistTable === 'function') renderBlacklistTable();
-  if (typeof renderStaffKPITable === 'function') renderStaffKPITable();
-  if (typeof updateLockdownUI === 'function') updateLockdownUI();
-  if (typeof renderCartPageUI === 'function') renderCartPageUI();
-  if (typeof renderCustomAccountsTable === 'function') renderCustomAccountsTable();
-  if (typeof renderProfilePage === 'function') renderProfilePage();
-  if (typeof renderAuditLog === 'function') renderAuditLog();
-  if (typeof renderInternalMessages === 'function') renderInternalMessages();
+async function refreshAllUIDisplays() {
+    try {
+        // Jeda 1: Komponen Ringan (Dashboard & Keranjang)
+        await new Promise(resolve => setTimeout(resolve, 50));
+        if (typeof updateDashboardData === 'function') updateDashboardData();
+        if (typeof renderCartPageUI === 'function') renderCartPageUI();
+
+        // Jeda 2: Tabel Transaksi Utama & Antrean
+        await new Promise(resolve => setTimeout(resolve, 50));
+        if (typeof renderTxProcessTable === 'function') renderTxProcessTable(true);
+        if (typeof renderReleaseOutstanding === 'function') renderReleaseOutstanding();
+
+        // Jeda 3: Tabel Riwayat dan Inventaris Vault
+        await new Promise(resolve => setTimeout(resolve, 50));
+        if (typeof renderVaultHistory === 'function') renderVaultHistory();
+        if (typeof renderVaultInventory === 'function') renderVaultInventory();
+
+        // Jeda 4: Papan Peringkat dan Log Scrap
+        await new Promise(resolve => setTimeout(resolve, 50));
+        if (typeof renderLeaderboard === 'function') renderLeaderboard();
+        if (typeof renderMetalScrapLogs === 'function') renderMetalScrapLogs();
+        
+    } catch (error) {
+        console.error("Terjadi kesalahan saat merender UI:", error);
+    }
 }
 
 function showToast(title, message, type = 'success') {
@@ -1455,8 +1461,8 @@ function applyPromoCode() {
   renderCartPageUI();
 }
 
-function checkoutCart() {
-  try {
+async function processCheckoutData() {
+  try {
     if (typeof isVaultLockdown !== 'undefined' && isVaultLockdown) {
       const rank = typeof getUserRank === 'function' ? getUserRank() : 'Soldiers';
       if (typeof isDonTier === 'function' && !isDonTier(rank)) {
@@ -1549,10 +1555,11 @@ function checkoutCart() {
         const updates = { ...inventoryUpdates };
         updates['ton_global_state/adminTransactions'] = adminTransactions;
         updates['ton_global_state/orgLeaderboard'] = orgLeaderboard;
-        db.ref().update(updates).catch(e => console.warn(e));
+       await db.ref().update(updates).catch(e => console.warn(e));
     }
 
-    if (typeof saveAppData === 'function') saveAppData(); 
+  await new Promise(resolve => setTimeout(resolve, 50));
+if (typeof saveAppData === 'function') await saveAppData();
 
     if (typeof sendDiscordWebhook === 'function' && typeof ORDERS_WEBHOOK_URL !== 'undefined') {
         sendDiscordWebhook(ORDERS_WEBHOOK_URL, "PESANAN BARU MASUK", `Pesanan dari **${activeUser}**`, [
@@ -1564,22 +1571,79 @@ function checkoutCart() {
     if (typeof appliedDiscount !== 'undefined') appliedDiscount = 0;
     if (typeof appliedPromoName !== 'undefined') appliedPromoName = '';
 
-    if (typeof renderCartPageUI === 'function') renderCartPageUI();
-    if (typeof updateDashboardData === 'function') updateDashboardData();
-    if (typeof renderTxProcessTable === 'function') renderTxProcessTable(true);
-    if (typeof renderVaultInventory === 'function') renderVaultInventory();
-    if (typeof renderReleaseOutstanding === 'function') renderReleaseOutstanding();
-    if (typeof renderVaultHistory === 'function') renderVaultHistory();
-    if (typeof renderLeaderboard === 'function') renderLeaderboard();
-    if (typeof closeCartDrawer === 'function') closeCartDrawer();
+   // Jeda 1: Render Keranjang & Dashboard
+    await new Promise(resolve => setTimeout(resolve, 50));
+    if (typeof renderCartPageUI === 'function') renderCartPageUI();
+    if (typeof updateDashboardData === 'function') updateDashboardData();
 
-    if (typeof showToast === 'function') showToast("ORDER PLACED", `Pesanan ID ${orderId} berhasil dikirim!`, "success");
-    if (typeof switchTab === 'function') switchTab('my-orders');
+    // Jeda 2: Render Tabel Transaksi & Inventory
+    await new Promise(resolve => setTimeout(resolve, 50));
+    if (typeof renderTxProcessTable === 'function') renderTxProcessTable(true);
+    if (typeof renderVaultInventory === 'function') renderVaultInventory();
+
+    // Jeda 3: Render Antrean & Riwayat
+    await new Promise(resolve => setTimeout(resolve, 50));
+    if (typeof renderReleaseOutstanding === 'function') renderReleaseOutstanding();
+    if (typeof renderVaultHistory === 'function') renderVaultHistory();
+
+    // Jeda 4: Render Leaderboard & Selesaikan UI
+    await new Promise(resolve => setTimeout(resolve, 50));
+    if (typeof renderLeaderboard === 'function') renderLeaderboard();
+    if (typeof closeCartDrawer === 'function') closeCartDrawer();
+
+    if (typeof showToast === 'function') showToast("ORDER PLACED", `Pesanan ID ${orderId} berhasil dikirim!`, "success");
+    if (typeof switchTab === 'function') switchTab('my-orders');
 
   } catch (err) {
     console.error("ERROR CHKOUT:", err);
     if (typeof showToast === 'function') showToast("SYSTEM ERROR", "Terjadi kesalahan sistem. Tekan F12 (Console).", "error");
   }
+}
+
+async function checkoutCart() {
+    if (!userCart || userCart.length === 0) return;
+
+    // Tampilkan Popup Bertema Terlebih Dahulu
+    Swal.fire({
+        background: '#0e1017',
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        customClass: { popup: 'border border-[#1e2230] rounded-2xl shadow-[0_0_40px_rgba(220,38,38,0.15)]' },
+        html: `
+            <div class="flex flex-col items-center justify-center p-4">
+                <i data-lucide="loader-2" class="w-10 h-10 text-red-600 animate-spin mb-4"></i>
+                <h3 class="text-white font-bold font-tech text-lg uppercase tracking-wider mb-1">MEMPROSES MANIFEST</h3>
+                <p class="text-zinc-500 text-[11px] uppercase tracking-widest">Menyandikan transfer data ke Vault...</p>
+            </div>
+        `,
+        didOpen: () => { if (typeof lucide !== 'undefined') lucide.createIcons(); }
+    });
+
+    try {
+        // KUNCI UTAMA: Berikan waktu 600ms agar browser memutar animasi spinner di layar
+        // sebelum terikat proses CPU yang berat.
+        await new Promise(resolve => setTimeout(resolve, 600));
+        
+        // Panggil fungsi pemrosesan data (sekarang berjalan setelah spinner lancar berputar)
+        await processCheckoutData(); 
+        
+        closeCartDrawer();
+
+        // Tampilkan Sukses
+        Swal.fire({
+            background: '#0e1017',
+            icon: 'success',
+            title: '<span class="text-white">Berhasil</span>',
+            html: '<span class="text-zinc-400 text-sm">Pesanan berhasil dikirim.</span>',
+            showConfirmButton: false,
+            timer: 1500,
+            customClass: { popup: 'border border-[#1e2230] rounded-2xl' }
+        });
+    } catch (error) {
+        console.error(error);
+        Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan sistem.' });
+    }
 }
 
 function filterTxStatus(status) {
@@ -1787,10 +1851,79 @@ function openTxDetailModal(txId) {
 }
 
 function closeTxDetailModal() { document.getElementById('tx-detail-modal').classList.add('hidden'); }
-function approveModalOrder() { if (currentModalTxId) quickApproveTx(currentModalTxId); closeTxDetailModal(); }
-function rejectModalOrder() { if (currentModalTxId) quickRejectTx(currentModalTxId); closeTxDetailModal(); }
 
-function quickApproveTx(txId) {
+function approveModalOrder() {
+    if (!currentModalTxId) return;
+
+    Swal.fire({
+        background: '#0e1017',
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        customClass: { popup: 'border border-[#1e2230] rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.15)]' },
+        html: `
+            <div class="flex flex-col items-center justify-center p-4">
+                <i data-lucide="scan-line" class="w-10 h-10 text-emerald-400 animate-pulse mb-4"></i>
+                <h3 class="text-white font-bold font-tech text-lg uppercase tracking-wider mb-1">OTORISASI AKSES</h3>
+                <p class="text-emerald-600/70 text-[11px] uppercase tracking-widest">Memvalidasi persetujuan brangkas...</p>
+            </div>
+        `,
+        didOpen: () => { 
+            if (typeof lucide !== 'undefined') lucide.createIcons(); 
+            
+            // Mulai proses berat setelah popup sepenuhnya muncul (jeda 400ms)
+            setTimeout(async () => {
+                await quickApproveTx(currentModalTxId);
+                closeTxDetailModal();
+                
+                Swal.fire({
+                    background: '#0e1017',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    customClass: { popup: 'border border-[#1e2230] rounded-2xl' },
+                    html: `
+                        <div class="flex flex-col items-center p-2">
+                            <div class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-3">
+                                <i data-lucide="check" class="w-6 h-6"></i>
+                            </div>
+                            <h3 class="text-white font-bold text-sm uppercase">TRANSAKSI DISETUJUI</h3>
+                        </div>
+                    `,
+                    didOpen: () => { if (typeof lucide !== 'undefined') lucide.createIcons(); }
+                });
+            }, 400);
+        }
+    });
+}
+
+async function rejectModalOrder() {
+    if (!currentModalTxId) return;
+
+    Swal.fire({
+        title: 'Membatalkan Pesanan...',
+        text: 'Mohon tunggu sebentar...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    try {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        await quickRejectTx(currentModalTxId);
+        
+        closeTxDetailModal();
+        Swal.fire({
+            icon: 'success',
+            title: 'Dibatalkan',
+            text: 'Pesanan berhasil ditolak.',
+            timer: 1500,
+            showConfirmButton: false
+        });
+    } catch (error) {
+        Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat memproses.' });
+    }
+}
+
+async function quickApproveTx(txId){
   const userRank = getUserRank();
   if (!isBisnisTier(userRank)) { 
     showToast("ACCESS DENIED", "Read-Only mode cannot validate orders!", "error"); 
@@ -1819,16 +1952,32 @@ function quickApproveTx(txId) {
       tx.processed = currentLoggedInUser || 'ADMIN'; 
     }
 
-    // KUNCI PERBAIKAN: Sinkronisasi cukup via saveAppData untuk menghindari crash/lag
-    saveAppData();
-    updateDashboardData(); 
-    if (typeof renderTxProcessTable === 'function') renderTxProcessTable(true);
-    if (typeof renderReleaseOutstanding === 'function') renderReleaseOutstanding();
     
-    showToast("PROCESSED", `TXID ${tx.id} berhasil diproses!`, "success");
+    // --> TAMBAHKAN KODE INI DI SINI <--
+    // Jeda 50ms agar browser bisa menampilkan animasi SweetAlert2 dengan lancar
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // ... (kode logika if else Anda sebelumnya) ...
+
+    // KUNCI PERBAIKAN FREEZE: 
+    // Daripada mengeksekusi semua render tabel di milidetik yang sama (yang menyebabkan Lag), 
+    // kita pisah eksekusinya ke dalam antrean (queue) menggunakan setTimeout.
+    
+    saveAppData();
+
+    setTimeout(() => {
+        updateDashboardData();
+    }, 50);
+
+    setTimeout(() => {
+        if (typeof renderTxProcessTable === 'function') renderTxProcessTable(true);
+    }, 100);
+
+    setTimeout(() => {
+        if (typeof renderReleaseOutstanding === 'function') renderReleaseOutstanding();
+    }, 150);
   }
 }
-
 function quickRejectTx(txId) {
   const userRank = getUserRank();
   if (!isBisnisTier(userRank)) {
@@ -2408,7 +2557,7 @@ function renderVaultHistory(isRefresh = false) {
   const searchQuery = document.getElementById('hist-search-input')?.value.toLowerCase().trim() || '';
   const statusFilter = document.getElementById('hist-status-filter')?.value || 'ALL';
 
-  const filtered = adminTransactions.filter(tx => {
+ let filtered = adminTransactions.filter(tx => {
     if (statusFilter !== 'ALL' && tx.status !== statusFilter) return false;
     if (searchQuery) {
       const matchId = tx.id.toLowerCase().includes(searchQuery);
@@ -2417,6 +2566,9 @@ function renderVaultHistory(isRefresh = false) {
     }
     return true;
   });
+
+// Tambahkan kode ini tepat setelah filter selesai
+filtered = filtered.slice(0, 50);
 
   table.innerHTML = '';
   if (filtered.length === 0) {
@@ -2667,46 +2819,85 @@ function submitCustomPrompt() {
 }
 
 function addScrapLog(type) {
-  if (!isBisnisTier(getUserRank())) return;
+  if (!isBisnisTier(getUserRank())) return;
 
-  showCustomPrompt(
-    type === 'IN' ? "Pemasukan Metal Scrap" : "Pengeluaran Metal Scrap",
-    `Masukkan jumlah (unit) besi scrap yang ${type === 'IN' ? 'MASUK' : 'KELUAR'}:`,
-    "100",
-    (qtyStr) => {
-      const qty = parseInt(qtyStr);
-      if (isNaN(qty) || qty <= 0) {
-        showToast("WARNING", "Jumlah kuantitas harus berupa angka valid lebih dari 0!", "error");
-        return;
-      }
+  showCustomPrompt(
+    type === 'IN' ? "Pemasukan Metal Scrap" : "Pengeluaran Metal Scrap",
+    `Masukkan jumlah (unit) besi scrap yang ${type === 'IN' ? 'MASUK' : 'KELUAR'}:`,
+    "100",
+    (qtyStr) => {
+      const qty = parseInt(qtyStr);
+      if (isNaN(qty) || qty <= 0) {
+        showToast("WARNING", "Jumlah kuantitas harus berupa angka valid lebih dari 0!", "error");
+        return;
+      }
 
-      setTimeout(() => {
-        showCustomPrompt(
-          "Keterangan Alur Scrap",
-          "Masukkan alasan atau keterangan alur material:",
-          type === 'IN' ? "Hasil peleburan scrap" : "Bahan crafting senjata",
-          (reason) => {
-            if (!reason) return;
-            
-            const timeStr = new Date().toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
-            const activeUser = (currentLoggedInUser || "ADMIN").toUpperCase();
-            
-            metalScrapLogs.unshift({ type: type, qty, reason, time: timeStr, user: activeUser });
-            saveAppData();
+      setTimeout(() => {
+        showCustomPrompt(
+          "Keterangan Alur Scrap",
+          "Masukkan alasan atau keterangan alur material:",
+          type === 'IN' ? "Hasil peleburan scrap" : "Bahan crafting senjata",
+          
+          // LAKUKAN PERUBAHAN DI SINI: Tambahkan 'async' pada callback reason
+          async (reason) => {
+            if (!reason) return;
+            
+            // 1. Munculkan Animasi Loading Custom Metal Scrap
+            Swal.fire({
+                background: '#0e1017',
+                showConfirmButton: false,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                customClass: { popup: 'border border-[#1e2230] rounded-2xl shadow-[0_0_40px_rgba(245,158,11,0.15)]' },
+                html: `
+                    <div class="flex flex-col items-center justify-center p-4">
+                        <i data-lucide="loader-2" class="w-10 h-10 text-amber-500 animate-spin mb-4"></i>
+                        <h3 class="text-white font-bold font-tech text-lg uppercase tracking-wider mb-1">MEMPROSES SCRAP</h3>
+                        <p class="text-zinc-500 text-[11px] uppercase tracking-widest">Memperbarui log inventaris...</p>
+                    </div>
+                `,
+                didOpen: () => { if (typeof lucide !== 'undefined') lucide.createIcons(); }
+            });
 
-            sendDiscordWebhook(METAL_SCRAP_WEBHOOK_URL, `🔩 METAL SCRAP LOG (${type === 'IN' ? 'PEMASUKAN' : 'PENGELUARAN'})`, `Catatan material scrap baru dicatat oleh **${activeUser}**`, [
-              { name: "Tipe Alur", value: type === 'IN' ? "🟢 Pemasukan (+IN)" : "🔴 Pengeluaran (-OUT)", inline: true },
-              { name: "Jumlah Qty", value: `${qty.toLocaleString()} Unit`, inline: true }, 
-              { name: "Keterangan", value: reason, inline: false }
-            ], type === 'IN' ? 3066993 : 15158332);
+            // 2. Jeda agar animasi sempat muncul di layar (Tidak freeze)
+            await new Promise(resolve => setTimeout(resolve, 300));
 
-            renderMetalScrapLogs();
-            showToast("SCRAP LOGGED", `Catatan ${type === 'IN' ? 'Pemasukan' : 'Pengeluaran'} Metal Scrap berhasil disimpan!`, "success");
-          }
-        );
-      }, 200);
-    }
-  );
+            const timeStr = new Date().toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+            const activeUser = (currentLoggedInUser || "ADMIN").toUpperCase();
+            
+            // Eksekusi Logika Array
+            metalScrapLogs.unshift({ type: type, qty, reason, time: timeStr, user: activeUser });
+            
+            // 3. Simpan data dan beri jeda komputasi
+            saveAppData();
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            // 4. Render ulang tabel scrap
+            renderMetalScrapLogs();
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            // 5. Kirim Webhook ke Discord
+            sendDiscordWebhook(METAL_SCRAP_WEBHOOK_URL, `🔩 METAL SCRAP LOG (${type === 'IN' ? 'PEMASUKAN' : 'PENGELUARAN'})`, `Catatan material scrap baru dicatat oleh **${activeUser}**`, [
+              { name: "Tipe Alur", value: type === 'IN' ? "🟢 Pemasukan (+IN)" : "🔴 Pengeluaran (-OUT)", inline: true },
+              { name: "Jumlah Qty", value: `${qty.toLocaleString()} Unit`, inline: true }, 
+              { name: "Keterangan", value: reason, inline: false }
+            ], type === 'IN' ? 3066993 : 15158332);
+
+            // 6. Tutup Loading dan Munculkan Tanda Sukses
+            Swal.fire({
+                background: '#0e1017',
+                icon: 'success',
+                title: '<span class="text-white">Berhasil</span>',
+                html: `<span class="text-zinc-400 text-sm">Catatan ${type === 'IN' ? 'Pemasukan' : 'Pengeluaran'} Metal Scrap berhasil disimpan!</span>`,
+                showConfirmButton: false,
+                timer: 1500,
+                customClass: { popup: 'border border-[#1e2230] rounded-2xl' }
+            });
+          }
+        );
+      }, 200);
+    }
+  );
 }
 
 function switchCatalogTab(tabName) {
