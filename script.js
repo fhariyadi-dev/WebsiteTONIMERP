@@ -1095,6 +1095,13 @@ function switchTab(tabId) {
   if (tabId === 'metal-scrap') renderMetalScrapLogs();
   
   if (typeof lucide !== 'undefined') lucide.createIcons();
+
+if (window.innerWidth < 768) {
+    const sidebar = document.getElementById('app-sidebar');
+    if (sidebar && !sidebar.classList.contains('-translate-x-full')) {
+      toggleMobileSidebar();
+    }
+  }
 }
 
 function renderMarketplace(category = 'all') {
@@ -6837,3 +6844,14 @@ function renderLaundryTable() {
   });
 }
 
+// ==========================================
+// KONTROL SIDEBAR RESPONSIVE HP
+// ==========================================
+function toggleMobileSidebar() {
+  const sidebar = document.getElementById('app-sidebar');
+  const backdrop = document.getElementById('mobile-sidebar-backdrop');
+  if (!sidebar || !backdrop) return;
+  
+  sidebar.classList.toggle('-translate-x-full');
+  backdrop.classList.toggle('hidden');
+}
