@@ -160,17 +160,17 @@
   </div>
 
   <!-- MAIN DASHBOARD -->
-  <div id="main-app" class="hidden min-h-screen flex flex-col md:flex-row">
-    
+  <div id="main-app" class="hidden min-h-screen flex flex-col md:flex-row w-full">
+
     <!-- TOMBOL MENU MOBILE & BACKDROP -->
-    <button onclick="toggleMobileSidebar()" class="md:hidden fixed top-5 right-5 z-[110] p-2 bg-[#131622] border border-[#1e2230] rounded-xl text-white shadow-lg flex items-center justify-center">
+   <button onclick="toggleMobileSidebar()" class="md:hidden fixed top-4 right-4 z-[999] p-2.5 bg-[#131622] border border-[#1e2230] rounded-xl text-white shadow-lg flex items-center justify-center hover:bg-red-600 transition-colors">
       <i data-lucide="menu" class="w-6 h-6"></i>
     </button>
-    <div id="mobile-sidebar-backdrop" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-black/80 z-[95] hidden md:hidden backdrop-blur-sm transition-opacity"></div>
-    
+<!-- BACKDROP GELAP MOBILE -->
+<div id="mobile-sidebar-backdrop" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-black/85 z-[997] hidden md:hidden backdrop-blur-md transition-opacity"></div>
+
    <!-- SIDEBAR NAVIGATION MENU -->
-<aside id="app-sidebar" class="ton-sidebar fixed md:static inset-y-0 left-0 z-[100] md:z-40 w-[280px] -translate-x-full md:translate-x-0 transition-transform duration-300 bg-[#0e1017] border-r border-[#1e2230] flex flex-col shrink-0 font-sans h-screen">
-  <div class="sidebar-top shrink-0">
+<aside id="app-sidebar" class="ton-sidebar fixed md:sticky top-0 left-0 h-screen z-[998] md:z-40 w-[280px] -translate-x-full md:translate-x-0 transition-transform duration-300 bg-[#0e1017] border-r border-[#1e2230] flex flex-col shrink-0 font-sans">  <div class="sidebar-top shrink-0">
     <div class="sidebar-brand">
       <div class="sidebar-brand-mark"><img src="https://raw.githubusercontent.com/ganzfathur9-web/logo-website-ton-/main/image.png" alt="The Old Norse"></div>
       <div class="sidebar-brand-copy"><span class="sidebar-brand-name">THE OLD NORSE</span><span class="sidebar-brand-caption"> </span></div>
